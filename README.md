@@ -289,7 +289,7 @@ Egyelőre semmilyen jogosulságkezelést nem valósítottunk meg a kódban, ezé
 Próbáljuk ki az alkalmazást 6.0/API 23 előtti verzióval rendelkező eszközön!
 Amennyiben az eszközön nincsenek névjegyek, adjunk hozzá legalább egyet telefonszámmal ellátva.
 
-<img src="./assets/app.png" width="400" align="left">
+<img src="./assets/app.png" width="400" align="middle">
 
 Android 6.0 vagy magasabb verzión futtatva az alkalmazást hibát kapunk, hiszen a névjegyek beolvasásához szükséges engedély a veszélyes kategóriába tartozik, ezért ezt külön kell kezelni a kódban. (6.0 felett ÉS target SDK 23+ esetén)
 
