@@ -422,3 +422,107 @@ Amennyiben az engedélyt az alkalmazás megkapta, a névjegyek a loadContacts() 
 
 Próbáljuk ki az alkalmazást 6.0+/API level 23+ eszközön!
 Figyeljük meg a magyarázódialógust abban az esetben, ha megtagadjuk az engedélyt, majd újraindítjuk az alkalmazást!
+
+## Telefonszám hívása
+
+Ahhoz, hogy alkalmazásunk hívásokat indíthasson, fel kell venni a következő engedélyt a manifest fájlba:
+
+```xml
+<uses-permission android:name="android.permission.CALL_PHONE" />
+```
+
+Magától értetődő, hogy ez az engedély is a veszélyes kategóriába tartozik, ezért ezt is megfelelően kell kezelnünk.
+Bővítsük a funkcionalitást olyan módon, hogy egy adott névjegy elemre kattintva hívást indítson az eszköz a névjegyen szereplő telefonszámra!
+
+Másoljuk az alábbi két metódust az adapterünkbe!
+
+```java
+private void handleCallPhonePermission(View view, String phoneNumber) {
+    if (ActivityCompat.checkSelfPermission(view.getContext(), Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
+        // Should we show an explanation?
+        if (ActivityCompat.shouldShowRequestPermissionRationale((Activity) mContext,
+                Manifest.permission.CALL_PHONE)) {
+            // Show an explanation to the user *asynchronously* -- don't block
+            // this thread waiting for the user's response! After the user
+            // sees the explanation, try again to request the permission.
+            AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(mContext);
+            alertDialogBuilder.setTitle(R.string.dialogTitle);
+            alertDialogBuilder
+                    .setMessage(R.string.explanation2)
+                    .setCancelable(false)
+                    .setNegativeButton(R.string.exit, new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int id) {
+                            ((ContactsActivity) mContext).finish();
+                        }
+                    })
+                    .setPositiveButton(R.string.forward, new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int id) {
+                            dialog.cancel();
+                            ActivityCompat.requestPermissions((Activity) mContext,
+                                    new String[]{Manifest.permission.CALL_PHONE},
+                                    MY_PERMISSIONS_REQUEST_PHONE_CALL);
+                        }
+                    });
+            AlertDialog alertDialog = alertDialogBuilder.create();
+            alertDialog.show();
+        } else {
+            // No explanation needed, we can request the permission.
+            ActivityCompat.requestPermissions((Activity) mContext,
+                    new String[]{Manifest.permission.CALL_PHONE},
+                    MY_PERMISSIONS_REQUEST_PHONE_CALL);
+        }
+    } else {
+        callPhoneNumber(phoneNumber);
+    }
+}
+
+private void callPhoneNumber(String phoneNumber) {
+    Intent callIntent = new Intent(Intent.ACTION_CALL);
+    callIntent.setData(Uri.parse("tel:" + phoneNumber));
+    mContext.startActivity(callIntent);
+}
+```
+
+strings.xml-be:
+
+```xml
+<string name="explanation2">A hívás indításához engedélyre van szükség!</string>
+```
+
+A callPhoneNumber() fogja a hívást indítani, a handleCallPhonePermission() pedig az engedélykérést kezeli a korábbival megegyező módon.
+Itt is szükség van egy requestCode-ra, hozzuk létre public láthatósággal a korábban létrehozott requestCode-tól eltérő értékkel.
+
+```java
+public static final int MY_PERMISSIONS_REQUEST_PHONE_CALL = 101;
+```
+
+Az engedélykérés válaszát ebben az esetben is a ContactsActivity fogja kezelni, ezért helyezzük el az alábbi ágat az onRequestPermissionsResult() metódusba!
+
+```java
+case ContactsAdapter.MY_PERMISSIONS_REQUEST_PHONE_CALL: {
+    if (grantResults.length > 0
+            && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+        Toast.makeText(this, R.string.phoneCallPermissionResultSuccess, Toast.LENGTH_SHORT).show();
+    }
+    return;
+}
+```
+
+strings.xml-be:
+
+```xml
+<string name="phoneCallPermissionResultSuccess">Engedély elfogadva, kérem érintse meg újra a névjegyet a híváshoz!</string>
+```
+
+A hívás kezeléséhez szükséges kód hozzáadásra került, nincs más hátra mint használni. Ehhez adjunk eseménykezelőt a névjegyekhez, mellyel elindítjuk az imént létrehozott hívás engedély kezelést!
+
+ContactsAdapter onBindViewHolder() végére:
+
+```java
+holder.container.setOnClickListener(new View.OnClickListener() {
+    @Override
+    public void onClick(View view) {
+        handleCallPhonePermission(view, holder.tvPhoneNumber.getText().toString());
+    }
+});
+```
