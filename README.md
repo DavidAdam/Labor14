@@ -87,6 +87,8 @@ onCreate() metódusba:
 contactsRV = (RecyclerView) findViewById(R.id.contactsRV);
 ```
 
+## Modell
+
 Készítsük el a Contact osztályt, mely az eszközön található névjegyeket fogja reprezentálni. Az egyszerűség kedvéért most csak a név és telefonszám adatokat tároljuk el benne.
 
 ```java
@@ -111,6 +113,8 @@ public class Contact {
     }
 }
 ```
+
+## Adapter
 
 Készítsük el a listát feltöltő adaptert ContactsAdapter néven, adapter csomagba.
 
@@ -278,9 +282,143 @@ Névjegyek olvasásához szükséges engedély a manifest-be:
 <uses-permission android:name="android.permission.READ_CONTACTS" />
 ```
 
+## Próba
+
 Egyelőre semmilyen jogosulságkezelést nem valósítottunk meg a kódban, ezért az alkalmazás pillanatnyi állapotának kipróbálásához Android 6.0 előtti verzióra van szükség, különben hibát kapunk az indulás során.
 
 Próbáljuk ki az alkalmazást 6.0/API 23 előtti verzióval rendelkező eszközön!
 Amennyiben az eszközön nincsenek névjegyek, adjunk hozzá legalább egyet telefonszámmal ellátva.
 
 KÉP KÉP KÉP KÉP
+
+Android 6.0 vagy magasabb verzión futtatva az alkalmazást hibát kapunk, hiszen a névjegyek beolvasásához szükséges engedély a veszélyes kategóriába tartozik, ezért ezt külön kell kezelni a kódban. (6.0 felett ÉS target SDK 23+ esetén)
+
+hiba:
+```java
+java.lang.SecurityException: Permission Denial: opening provider com.android.providers.contacts.ContactsProvider2 from ProcessRecord{b077ff8 21678:hu.bme.aut.amorg.examples.permissionslabor/u0a264} (pid=21678, uid=10264) requires android.permission.READ_CONTACTS or android.permission.WRITE_CONTACTS
+```
+
+## Jogosultságkezelés
+
+Módosítsuk az alkalmazást úgy, hogy futási időben kérje el a felhasználótól a manifestben deklarált veszélyes engedélyt! Ehhez a bevezetőben ismertetett metódusok lesznek segítségünkre.
+
+Emeljük ki a ContactsActivity onCreate() metódusában található alábbi 3 sor kódot egy metódusba, melynek a neve legyen loadContacts()!
+Ezt legegyszerűbben a kiemelni kívánt kód kijelölésével, majd CTRL+ALT+M billentyűkombinációval tudjuk megtenni Android Studioban.
+
+```java
+private void loadContacts() {
+    ContactsAdapter contactsAdapter = new ContactsAdapter(getAllContacts(), this);
+    contactsRV.setLayoutManager(new LinearLayoutManager(this));
+    contactsRV.setAdapter(contactsAdapter);
+}
+```
+
+onCreate():
+```java
+@Override
+protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    setContentView(R.layout.activity_contacts);
+    contactsRV = (RecyclerView) findViewById(R.id.contactsRV);
+
+    loadContacts();
+}
+```
+
+Ahelyett hogy az onCreate()-ben azonnal meghívnánk a loadContacts() függvényt, kérjünk a felhasználótól engedélyt a névjegyek olvasására!
+
+Adjuk hozzá az alábbi metódust a ContactsActivityhez!
+
+```java
+private void handleReadContactsPermission() {
+    if (ContextCompat.checkSelfPermission(this,
+            Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+        // Should we show an explanation?
+        if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.READ_CONTACTS)) {
+
+            // Show an explanation to the user *asynchronously* -- don't block
+            // this thread waiting for the user's response! After the user
+            // sees the explanation, try again to request the permission.
+            AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
+            alertDialogBuilder.setTitle(R.string.dialogTitle);
+            alertDialogBuilder
+                    .setMessage(R.string.explanation)
+                    .setCancelable(false)
+                    .setNegativeButton(R.string.exit, new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int id) {
+                            ContactsActivity.this.finish();
+                        }
+                    })
+                    .setPositiveButton(R.string.forward, new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int id) {
+                            dialog.cancel();
+                            ActivityCompat.requestPermissions(ContactsActivity.this,
+                                    new String[]{Manifest.permission.READ_CONTACTS},
+                                    MY_PERMISSIONS_REQUEST_READ_CONTACTS);
+                        }
+                    });
+            AlertDialog alertDialog = alertDialogBuilder.create();
+            alertDialog.show();
+        } else {
+            // No explanation needed, we can request the permission.
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.READ_CONTACTS},
+                    MY_PERMISSIONS_REQUEST_READ_CONTACTS);
+        }
+    } else {
+        loadContacts();
+    }
+}
+```
+
+A MY_PERMISSIONS_REQUEST_READ_CONTACTS egy általunk definiálandó requestCode. Amikor engedélyt kérünk, meg kell adni mellé egy requestCode-ot is, és amikor az operációs rendszer visszatér a onRequestPermissionsResult() metódusban, akkor ez alapján tudjuk kezelni, hogy éppen melyik engedélykérésre érkezett válasz.
+
+Bármilyen érték adható neki, jelen esetben legyen 100.
+
+```java
+private static final int MY_PERMISSIONS_REQUEST_READ_CONTACTS = 100;
+```
+
+strings.xml-be:
+```xml
+<string name="dialogTitle">Figyelem!</string>
+<string name="explanation">Az alkalmazásnak szüksége van az engedélyre a névjegyek beolvasásához!</string>
+<string name="exit">Kilépés</string>
+<string name="forward">Tovább</string>
+```
+
+A handleReadContactsPermission() metódus megvizsgálja a checkSelfPermission() segítségével, hogy az alkalmazás rendelkezik-e már a READ_CONTACTS engedéllyel. Ha igen, akkor meghívja a loadContacts() metódust, és a névjegyek betöltődnek. Ellenkező esetben nézzük meg, hogy a felhasználót kell-e tájékoztatni az engedélykérés létjogosultságáról (shouldShowRequestPermissionRationale()). Ez a metódus akkor tér vissza true értékkel, ha korábban a felhasználó megtagadta az engedélyt az alkalmazástól. (Például mert nem gondolta, hogy az adott funkcióhoz feltétlenül szükséges az engedély.) Ilyenkor érdemes egy magyarázatot adni, melyben leírjuk, hogy miért van feltétlen szükség az engedélyre. (Legyünk tömörek, a hosszú magyarázatokat nem fogja a felhasználó elolvasni, inkább letörli az alkalmazást...) A magyarázat jelen esetben egy dialógus, mely rövid leírást ad az engedély szükségességéről.
+Amennyiben nincs szükség magyarázatra, vagy a magyarázat dialógusablakában a Tovább gombra nyomott a felhasználó, akkor kérjük el az engedélyt (requestPermissions()).
+
+Cseréljük ki az activity onCreate()-ben található loadContacts() metódust az újonnan létrehozottra (handleReadContactsPermission();)!
+
+Kezeljük le az engedélykérés válaszát (onRequestPermissionsResult()) is az alábbi kóddal:
+
+```java
+@Override
+public void onRequestPermissionsResult(int requestCode,
+                                       String permissions[], int[] grantResults) {
+    switch (requestCode) {
+        case MY_PERMISSIONS_REQUEST_READ_CONTACTS: {
+            // If request is cancelled, the result arrays are empty.
+            if (grantResults.length > 0
+                    && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // permission was granted, yay! Do the
+                // contacts-related task you need to do.
+                loadContacts();
+            } else {
+                // permission denied! Disable the
+                // functionality that depends on this permission.
+            }
+            return;
+        }
+    }
+}
+```
+
+Amennyiben az engedélyt az alkalmazás megkapta, a névjegyek a loadContacts() segítségével betöltésre kerülnek.
+
+## Próba
+
+Próbáljuk ki az alkalmazást 6.0+/API level 23+ eszközön!
+Figyeljük meg a magyarázódialógust abban az esetben, ha megtagadjuk az engedélyt, majd újraindítjuk az alkalmazást!
