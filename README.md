@@ -526,3 +526,18 @@ holder.container.setOnClickListener(new View.OnClickListener() {
     }
 });
 ```
+
+## Próba
+
+Teszteljük a hívás funkcionalitást 6.0+/API level 23+ eszközön!
+
+## Önálló feladatok
+
+*   Valósítsa meg az SMS küldés funkcionalitást!
+
+...például hosszú érintés eseménykezelő segítségével. A szükséges engedély:
+
+```xml
+<uses-permission android:name="android.permission.SEND_SMS"/>
+```
+
