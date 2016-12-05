@@ -230,7 +230,7 @@ strings.xml-be:
 ```
 
 drawables mappába:
-LINK A KÉPHEZ!
+[ic_contact_phone_black_48dp](./assets/ic_contact_phone_black_48dp.png)
 
 A névjegyek megjelenítéséhez az utolsó lépés az adapter pélányosítása, és beállítása a recyclerview komponenshez. Szükség van az eszközön tárolt névjegyek megszerzésére, ehhez adjuk hozzá a ContactsActivity-be az alábbi metódust:
 
